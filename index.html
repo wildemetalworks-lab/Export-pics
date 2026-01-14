@@ -2,8 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+
+    <meta http-equiv="Content-Security-Policy"
+          content="
+            default-src 'self' data: blob:;
+            img-src 'self' data: blob:;
+            script-src 'self' 'unsafe-inline';
+            style-src 'self' 'unsafe-inline';
+            connect-src 'self' ws: wss: http://127.0.0.1:3001;
+            frame-ancestors *;
+          ">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seacan Loading Photo Submission</title>
+
     <style>
         body {
             font-family: Arial, Helvetica, sans-serif;
@@ -38,12 +50,7 @@
             text-transform: uppercase;
             border: 2px solid #ccc;
             border-radius: 8px;
-            box-sizing: border-box;
             margin-bottom: 30px;
-        }
-        #seacan-id:focus {
-            border-color: #3498db;
-            outline: none;
         }
         .upload-area {
             border: 3px dashed #3498db;
@@ -53,43 +60,27 @@
             background-color: #ecf0f1;
             margin-bottom: 30px;
             cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .upload-area:hover {
-            background-color: #d9e4ec;
-        }
-        .upload-area p {
-            margin: 10px 0;
-            font-size: 1.2em;
-            color: #555;
-        }
-        #file-input {
-            display: none;
         }
         .preview-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             gap: 15px;
-            margin-top: 20px;
         }
         .preview-item {
             position: relative;
-            border: 1px solid #ddd;
             border-radius: 8px;
             overflow: hidden;
-            background: #fff;
         }
         .preview-item img {
             width: 100%;
             height: 150px;
             object-fit: cover;
-            display: block;
         }
         .remove-btn {
             position: absolute;
             top: 5px;
             right: 5px;
-            background: rgba(231, 76, 60, 0.9);
+            background: #e74c3c;
             color: white;
             border: none;
             width: 28px;
@@ -97,28 +88,17 @@
             border-radius: 50%;
             font-size: 18px;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .remove-btn:hover {
-            background: #c0392b;
         }
         .submit-btn {
-            display: block;
             width: 100%;
             padding: 18px;
             font-size: 1.5em;
-            font-weight: bold;
             background-color: #27ae60;
             color: white;
             border: none;
             border-radius: 10px;
             cursor: pointer;
             margin-top: 30px;
-        }
-        .submit-btn:hover {
-            background-color: #219a52;
         }
         .submit-btn:disabled {
             background-color: #95a5a6;
@@ -128,208 +108,95 @@
             color: #e74c3c;
             font-weight: bold;
             text-align: center;
-            margin: 15px 0;
+            margin-top: 15px;
             display: none;
-        }
-        @media (max-width: 600px) {
-            .container {
-                padding: 20px;
-            }
-            #seacan-id {
-                font-size: 1.2em;
-                padding: 12px;
-            }
-            .submit-btn {
-                font-size: 1.3em;
-                padding: 16px;
-            }
         }
     </style>
 </head>
+
 <body>
-    <div class="container">
-        <h1>Seacan Loading Photo Submission</h1>
+<div class="container">
+    <h1>Seacan Loading Photo Submission</h1>
 
-        <label for="seacan-id">Seacan ID (required)</label>
-        <input type="text" id="seacan-id" placeholder="Enter Seacan ID" required>
+    <label for="seacan-id">Seacan ID (required)</label>
+    <input type="text" id="seacan-id" placeholder="Enter Seacan ID">
 
-        <label>Photos (JPEG or PNG only – required at least one)</label>
-        <div class="upload-area" onclick="document.getElementById('file-input').click()">
-            <p>Click here or drag files to upload photos</p>
-            <p>(Multiple files allowed)</p>
-        </div>
-        <input type="file" id="file-input" accept="image/jpeg,image/png" multiple>
-
-        <div id="preview-grid" class="preview-grid"></div>
-
-        <div id="error-msg" class="error"></div>
-
-        <button id="submit-btn" class="submit-btn" disabled>Submit via Email</button>
+    <label>Photos (JPEG or PNG only – at least one required)</label>
+    <div class="upload-area" onclick="fileInput.click()">
+        Click or drag photos here
     </div>
 
-    <script>
-        const fileInput = document.getElementById('file-input');
-        const previewGrid = document.getElementById('preview-grid');
-        const seacanInput = document.getElementById('seacan-id');
-        const submitBtn = document.getElementById('submit-btn');
-        const errorMsg = document.getElementById('error-msg');
+    <input type="file" id="file-input" accept="image/jpeg,image/png" multiple hidden>
 
-        let filesArray = [];
+    <div id="preview-grid" class="preview-grid"></div>
+    <div id="error-msg" class="error"></div>
 
-        // Force uppercase on Seacan ID
-        seacanInput.addEventListener('input', function() {
-            this.value = this.value.toUpperCase();
-            updateSubmitState();
-        });
+    <button id="submit-btn" class="submit-btn" disabled>Submit via Email</button>
+</div>
 
-        // Handle file selection
-        fileInput.addEventListener('change', handleFiles);
+<script>
+    const fileInput = document.getElementById('file-input');
+    const previewGrid = document.getElementById('preview-grid');
+    const seacanInput = document.getElementById('seacan-id');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorMsg = document.getElementById('error-msg');
 
-        // Also support drag & drop on upload area
-        const uploadArea = document.querySelector('.upload-area');
-        uploadArea.addEventListener('dragover', e => {
-            e.preventDefault();
-            uploadArea.style.backgroundColor = '#d0e1f0';
-        });
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.style.backgroundColor = '#ecf0f1';
-        });
-        uploadArea.addEventListener('drop', e => {
-            e.preventDefault();
-            uploadArea.style.backgroundColor = '#ecf0f1';
-            handleFiles({ target: { files: e.dataTransfer.files } });
-        });
+    let filesArray = [];
 
-        function handleFiles(e) {
-            const newFiles = Array.from(e.target.files);
-            const validFiles = newFiles.filter(file => 
-                file.type === 'image/jpeg' || file.type === 'image/png'
-            );
+    seacanInput.addEventListener('input', () => {
+        seacanInput.value = seacanInput.value.toUpperCase();
+        updateState();
+    });
 
-            if (validFiles.length < newFiles.length) {
-                alert('Only JPEG and PNG images are allowed. Invalid files were ignored.');
-            }
+    fileInput.addEventListener('change', e => {
+        filesArray.push(...Array.from(e.target.files));
+        render();
+        updateState();
+    });
 
-            filesArray = filesArray.concat(validFiles);
-            renderPreviews();
-            updateSubmitState();
-        }
+    function render() {
+        previewGrid.innerHTML = '';
+        filesArray.forEach((file, i) => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
 
-        function renderPreviews() {
-            previewGrid.innerHTML = '';
-            filesArray.forEach((file, index) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const div = document.createElement('div');
-                    div.className = 'preview-item';
+                const img = document.createElement('img');
+                img.src = e.target.result;
 
-                    const img = document.createElement('img');
-                    img.src = e.target.result;
-                    div.appendChild(img);
-
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'remove-btn';
-                    removeBtn.innerHTML = '×';
-                    removeBtn.onclick = (ev) => {
-                        ev.stopPropagation();
-                        filesArray.splice(index, 1);
-                        renderPreviews();
-                        updateSubmitState();
-                    };
-                    div.appendChild(removeBtn);
-
-                    previewGrid.appendChild(div);
+                const btn = document.createElement('button');
+                btn.className = 'remove-btn';
+                btn.textContent = '×';
+                btn.onclick = () => {
+                    filesArray.splice(i, 1);
+                    render();
+                    updateState();
                 };
-                reader.readAsDataURL(file);
-            });
-        }
 
-        function updateSubmitState() {
-            const hasId = seacanInput.value.trim() !== '';
-            const hasPhotos = filesArray.length > 0;
-            submitBtn.disabled = !(hasId && hasPhotos);
-            errorMsg.style.display = 'none';
-        }
-
-        submitBtn.addEventListener('click', () => {
-            const seacanId = seacanInput.value.trim().toUpperCase();
-            if (!seacanId) {
-                showError('Please enter a Seacan ID.');
-                return;
-            }
-            if (filesArray.length === 0) {
-                showError('Please upload at least one photo.');
-                return;
-            }
-
-            // Change this email address to your desired recipient
-            const emailRecipient = 'kainaiexportpics@proton.me';
-
-            const now = new Date();
-            const dateTime = now.toLocaleString();
-
-            const subject = encodeURIComponent(`Seacan Loaded - ${seacanId}`);
-            const body = encodeURIComponent(
-                `Seacan ID: ${seacanId}\nPhotos attached.\nSubmitted on: ${dateTime}`
-            );
-
-            // Create mailto with attachments (using data URI for each file)
-            let mailtoLink = `mailto:${emailRecipient}?subject=${subject}&body=${body}`;
-
-            // Add attachments via data URIs (limited by mailto URL length, but works well for a few photos)
-            const attachments = filesArray.map((file, idx) => {
-                const extension = file.type === 'image/jpeg' ? 'jpg' : 'png';
-                const renamedName = `SEACAN-${seacanId}-${idx + 1}.${extension}`;
-                return {
-                    name: renamedName,
-                    data: file
-                };
-            });
-
-            // For modern email clients that support multiple attachments in mailto, we use a trick with body containing data URIs
-            // Most mobile/desktop clients will open with attachments pre-filled
-            if (attachments.length > 0) {
-                // We'll use the first method that works for most clients: open mailto without attachments and let user send manually
-                // Unfortunately, true attachment via mailto with data URIs is unreliable across clients.
-                // Better approach: open mailto without attachments and instruct user to attach manually.
-                // But many warehouse users expect automatic attachment.
-                // Compromise: use a small number of attachments via base64 in body (limited but often works on mobile)
-
-                // We'll try the base64 method for up to 5 photos (most clients handle this)
-                if (attachments.length <= 5) {
-                    let bodyWithAttachments = body + '%0D%0A%0D%0A'; // extra line breaks
-                    const promises = attachments.map(item => {
-                        return new Promise(resolve => {
-                            const reader = new FileReader();
-                            reader.onload = () => {
-                                const base64 = reader.result.split(',')[1];
-                                const mime = item.data.type;
-                                bodyWithAttachments += `Attachment: ${item.name}%0D%0A${mime};base64,${base64}%0D%0A%0D%0A`;
-                                resolve();
-                            };
-                            reader.readAsDataURL(item.data);
-                        });
-                    });
-
-                    Promise.all(promises).then(() => {
-                        mailtoLink = `mailto:${emailRecipient}?subject=${subject}&body=${encodeURIComponent(bodyWithAttachments)}`;
-                        window.location.href = mailtoLink;
-                    });
-                } else {
-                    // Fallback for many photos
-                    alert('You have selected many photos. The email client will open with subject and body filled. Please attach the photos manually.');
-                    window.location.href = mailtoLink;
-                }
-            } else {
-                window.location.href = mailtoLink;
-            }
+                div.append(img, btn);
+                previewGrid.appendChild(div);
+            };
+            reader.readAsDataURL(file);
         });
+    }
 
-        function showError(message) {
-            errorMsg.textContent = message;
+    function updateState() {
+        submitBtn.disabled = !(seacanInput.value && filesArray.length);
+        errorMsg.style.display = 'none';
+    }
+
+    submitBtn.onclick = () => {
+        if (!seacanInput.value || !filesArray.length) {
+            errorMsg.textContent = 'Seacan ID and at least one photo are required.';
             errorMsg.style.display = 'block';
+            return;
         }
-    </script>
-</body>
 
+        const subject = encodeURIComponent(`Seacan Loaded - ${seacanInput.value}`);
+        const body = encodeURIComponent(`Seacan ID: ${seacanInput.value}\nPhotos attached.`);
+        window.location.href = `mailto:pixelgun525@gmail.com?subject=${subject}&body=${body}`;
+    };
+</script>
+</body>
 </html>
