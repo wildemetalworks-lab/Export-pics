@@ -197,7 +197,7 @@
             errorMsg.style.display = 'block';
             return;
         }
-
+    
         // Build inline HTML for images
         let imagesHtml = '';
         for (let file of filesArray) {
@@ -207,15 +207,34 @@
                 <img src="data:${file.type};base64,${base64}" style="max-width:300px;">
             `;
         }
-
+    
         // Send email via EmailJS
         emailjs.send("service-id", "template-id", {
             seacan_id: seacanInput.value,
             images_html: imagesHtml,
             email: "your-email-here",
         })
-        .then(() => alert("Email sent successfully!"))
-        .catch(err => console.error("EmailJS error:", err));
+        .then(() => {
+            // Disable everything to prevent resubmit
+            submitBtn.disabled = true;
+            seacanInput.disabled = true;
+            fileInput.disabled = true;
+    
+            // Clear previews and upload area
+            previewGrid.innerHTML = '';
+            document.querySelector('.upload-area').style.display = 'none';
+    
+            // Show final message
+            errorMsg.textContent = 'Submission successful! You may now close this page.';
+            errorMsg.style.color = '#27ae60';
+            errorMsg.style.display = 'block';
+        })
+        .catch(err => {
+            console.error("EmailJS error:", err);
+            errorMsg.textContent = 'Error sending email. Please try again.';
+            errorMsg.style.color = '#e74c3c';
+            errorMsg.style.display = 'block';
+        });
     };
 
     function fileToBase64(file) {
@@ -229,3 +248,4 @@
 </script>
 </body>
 </html>
+
