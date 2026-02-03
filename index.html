@@ -231,7 +231,7 @@
             errorMsg.style.display = 'block';
         } catch (err) {
             console.error('EmailJS error:', err);
-            errorMsg.textContent = 'Failed to send: ' + (err.text || err.message || 'Check browser console (F12)');
+            errorMsg.textContent = 'Failed to send: ' + (err.text || err.message || 'Check console (F12 → Console tab)');
             errorMsg.style.color = '#e74c3c';
             errorMsg.style.display = 'block';
             submitBtn.disabled = false;
